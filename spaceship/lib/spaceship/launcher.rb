@@ -68,27 +68,30 @@ module Spaceship
 
     # @return (Class) Access the apps for this spaceship
     def app
+      raise "Unsafe use of static class."
       Spaceship::App.set_client(@client)
     end
 
     # @return (Class) Access the app groups for this spaceship
     def app_group
+      raise "Unsafe use of static class."
       Spaceship::AppGroup.set_client(@client)
     end
 
     # @return (Class) Access the devices for this spaceship
     def device
-      Spaceship::Device.set_client(@client)
+      @device ||= Spaceship::Portal::Devices.new @client
     end
 
     # @return (Class) Access the certificates for this spaceship
     def certificate
+      raise "Unsafe use of static class."
       Spaceship::Certificate.set_client(@client)
     end
 
     # @return (Class) Access the provisioning profiles for this spaceship
     def provisioning_profile
-      Spaceship::ProvisioningProfile.set_client(@client)
+      @provisioning_profile ||= Spaceship::Portal::ProvisioningProfiles.new(@client)
     end
   end
 end
