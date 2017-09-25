@@ -305,9 +305,9 @@ module Spaceship
         #  only return the profiles that are of this type
         # @param mac (Bool) (optional): Pass true to get all Mac provisioning profiles
         # @param xcode (Bool) (optional): Pass true to include Xcode managed provisioning profiles
-        # @param alternativeClient (Spaceship::Client) (optional): Pass an alternative client to use instead of the static one.
-        def all(mac: false, xcode: false, alternativeClient: nil)
-          currentClient = alternativeClient.nil? ? client : alternativeClient
+        # @param alternative_client (Spaceship::Client) (optional): Pass an alternative client to use instead of the static one.
+        def all(mac: false, xcode: false, alternative_client: nil)
+          currentClient = alternative_client.nil? ? client : alternative_client
 
           if ENV['SPACESHIP_AVOID_XCODE_API']
             profiles = currentClient.provisioning_profiles(mac: mac)
@@ -473,7 +473,7 @@ module Spaceship
         end
 
         # We need to fetch the provisioning profile again, as the ID changes
-        profile = Spaceship::ProvisioningProfile.all(mac: mac?, alternativeClient: @client).find do |p|
+        profile = Spaceship::ProvisioningProfile.all(mac: mac?, alternative_client: @client).find do |p|
           p.name == self.name # we can use the name as it's valid
         end
 

@@ -55,11 +55,10 @@ module Spaceship
         # @param mac [Bool] Fetches Mac devices if true
         # @param include_disabled [Bool] Whether to include disable devices. false by default.
         # @return (Array) Returns all devices registered for this account
-        # @param alternativeClient (Spaceship::Client) (optional): Pass an alternative client to use instead of the static one.
-        def all(mac: false, include_disabled: false, alternativeClient: nil)
-          currentClient = alternativeClient.nil? ? client : alternativeClient
-
-          currentClient.devices(mac: mac, include_disabled: include_disabled).map { |device| self.factory(device) }
+        # @param alternative_client (Spaceship::Client) (optional): Pass an alternative client to use instead of the static one.
+        def all(mac: false, include_disabled: false, alternative_client: nil)
+          currentClient = alternative_client.nil? ? client : alternative_client
+          currentClient.devices(mac: mac, include_disabled: include_disabled).map { |device| Spaceship::Device.factory(device) }
         end
 
         # @return (Array) Returns all Apple TVs registered for this account
