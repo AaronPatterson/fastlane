@@ -431,16 +431,20 @@ module Spaceship
     #####################################################
 
     def devices(mac: false, include_disabled: false)
-      paging do |page_number|
+      result = paging do |page_number|
         r = request(:post, "account/#{platform_slug(mac)}/device/listDevices.action", {
-          teamId: team_id,
-          pageNumber: page_number,
-          pageSize: page_size,
-          sort: 'name=asc',
-          includeRemovedDevices: include_disabled
+            teamId: team_id,
+            pageNumber: page_number,
+            pageSize: page_size,
+            sort: 'name=asc',
+            includeRemovedDevices: include_disabled
         })
         parse_response(r, 'devices')
       end
+
+      csrf_cache[Spaceship::Device] = self.csrf_tokens
+
+      result
     end
 
     def devices_by_class(device_class, include_disabled: false)
@@ -548,7 +552,7 @@ module Spaceship
     #####################################################
 
     def provisioning_profiles(mac: false)
-      paging do |page_number|
+      result = paging do |page_number|
         req = request(:post, "account/#{platform_slug(mac)}/profile/listProvisioningProfiles.action", {
           teamId: team_id,
           pageNumber: page_number,
@@ -560,6 +564,10 @@ module Spaceship
 
         parse_response(req, 'provisioningProfiles')
       end
+
+      csrf_cache[Spaceship::ProvisioningProfile] = self.csrf_tokens
+
+      result
     end
 
     ##
@@ -576,6 +584,8 @@ module Spaceship
           onlyCountLists: true
         }
       end
+
+      csrf_cache[Spaceship::ProvisioningProfile] = self.csrf_tokens
 
       parse_response(req, 'provisioningProfiles')
     end
@@ -714,7 +724,7 @@ module Spaceship
 
     # This is a cache of entity type (App, AppGroup, Certificate, Device) to csrf_tokens
     def csrf_cache
-      @csrf_cache || {}
+      @csrf_cache ||= {}
     end
 
     # Ensures that there are csrf tokens for the appropriate entity type
@@ -734,11 +744,15 @@ module Spaceship
       # we don't have a valid csrf token, that's why we have to do at least one request
       block_given? ? yield : klass.all(alternative_client: self)
 
+      # TODO: Still needed?
+      #
+      # NOTE: Tested with Devices and Provisioning Profiles, works fine without this. (September 25 2017)
+      #
       # Update 18th August 2016
       # For some reason, we have to query the resource twice to actually get a valid csrf_token
       # I couldn't find out why, the first response does have a valid Set-Cookie header
       # But it still needs this second request
-      block_given? ? yield : klass.all(alternative_client: self)
+      #block_given? ? yield : klass.all(alternative_client: self)
 
       csrf_cache[klass] = self.csrf_tokens
     end
