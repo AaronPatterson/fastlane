@@ -431,7 +431,7 @@ module Spaceship
     #####################################################
 
     def devices(mac: false, include_disabled: false)
-      result = paging do |page_number|
+      @devices_cache ||= paging do |page_number|
         r = request(:post, "account/#{platform_slug(mac)}/device/listDevices.action", {
             teamId: team_id,
             pageNumber: page_number,
@@ -444,7 +444,7 @@ module Spaceship
 
       csrf_cache[Spaceship::Device] = self.csrf_tokens
 
-      result
+      @devices_cache
     end
 
     def devices_by_class(device_class, include_disabled: false)
