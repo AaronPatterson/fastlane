@@ -444,7 +444,7 @@ module Spaceship
 
       csrf_cache[Spaceship::Device] = self.csrf_tokens
 
-      @devices_cache
+      @devices_cache.dup
     end
 
     def devices_by_class(device_class, include_disabled: false)
@@ -551,23 +551,29 @@ module Spaceship
     # @!group Provisioning Profiles
     #####################################################
 
-    def provisioning_profiles(mac: false)
-      result = paging do |page_number|
-        req = request(:post, "account/#{platform_slug(mac)}/profile/listProvisioningProfiles.action", {
-          teamId: team_id,
-          pageNumber: page_number,
-          pageSize: page_size,
-          sort: 'name=asc',
-          includeInactiveProfiles: true,
-          onlyCountLists: true
-        })
+    def clear_provisioning_profiles_cache()
+      @profiles_cache = nil
+    end
 
-        parse_response(req, 'provisioningProfiles')
+    def provisioning_profiles(mac: false)
+      unless @profiles_cache
+        @profiles_cache = paging do |page_number|
+          req = request(:post, "account/#{platform_slug(mac)}/profile/listProvisioningProfiles.action", {
+            teamId: team_id,
+            pageNumber: page_number,
+            pageSize: page_size,
+            sort: 'name=asc',
+            includeInactiveProfiles: true,
+            onlyCountLists: true
+          })
+
+          parse_response(req, 'provisioningProfiles')
+        end
+
+        csrf_cache[Spaceship::ProvisioningProfile] = self.csrf_tokens
       end
 
-      csrf_cache[Spaceship::ProvisioningProfile] = self.csrf_tokens
-
-      result
+      @profiles_cache.dup
     end
 
     ##
@@ -576,18 +582,22 @@ module Spaceship
     #
     # Use this method over `provisioning_profiles` if possible because no secondary API calls are necessary to populate the ProvisioningProfile data model.
     def provisioning_profiles_via_xcode_api(mac: false)
-      req = request(:post) do |r|
-        r.url "https://developerservices2.apple.com/services/#{PROTOCOL_VERSION}/#{platform_slug(mac)}/listProvisioningProfiles.action"
-        r.params = {
-          teamId: team_id,
-          includeInactiveProfiles: true,
-          onlyCountLists: true
-        }
+      unless @profiles_cache
+        req = request(:post) do |r|
+          r.url "https://developerservices2.apple.com/services/#{PROTOCOL_VERSION}/#{platform_slug(mac)}/listProvisioningProfiles.action"
+          r.params = {
+            teamId: team_id,
+            includeInactiveProfiles: true,
+            onlyCountLists: true
+          }
+        end
+
+        csrf_cache[Spaceship::ProvisioningProfile] = self.csrf_tokens
+
+        @profiles_cache = parse_response(req, 'provisioningProfiles')
       end
 
-      csrf_cache[Spaceship::ProvisioningProfile] = self.csrf_tokens
-
-      parse_response(req, 'provisioningProfiles')
+      @profiles_cache.dup
     end
 
     def provisioning_profile_details(provisioning_profile_id: nil, mac: false)
