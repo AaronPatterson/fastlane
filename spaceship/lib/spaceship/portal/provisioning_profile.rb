@@ -478,6 +478,7 @@ module Spaceship
         end
 
         # We need to fetch the provisioning profile again, as the ID changes
+        @client.clear_provisioning_profiles_cache
         profile = Spaceship::ProvisioningProfile.all(mac: mac?, alternative_client: @client).find do |p|
           p.name == self.name # we can use the name as it's valid
         end

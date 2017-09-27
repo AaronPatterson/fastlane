@@ -431,16 +431,20 @@ module Spaceship
     #####################################################
 
     def devices(mac: false, include_disabled: false)
-      paging do |page_number|
+      @devices_cache ||= paging do |page_number|
         r = request(:post, "account/#{platform_slug(mac)}/device/listDevices.action", {
-          teamId: team_id,
-          pageNumber: page_number,
-          pageSize: page_size,
-          sort: 'name=asc',
-          includeRemovedDevices: include_disabled
+            teamId: team_id,
+            pageNumber: page_number,
+            pageSize: page_size,
+            sort: 'name=asc',
+            includeRemovedDevices: include_disabled
         })
         parse_response(r, 'devices')
       end
+
+      csrf_cache[Spaceship::Device] = self.csrf_tokens
+
+      @devices_cache.dup
     end
 
     def devices_by_class(device_class, include_disabled: false)
@@ -492,16 +496,20 @@ module Spaceship
     #####################################################
 
     def certificates(types, mac: false)
-      paging do |page_number|
-        r = request(:post, "account/#{platform_slug(mac)}/certificate/listCertRequests.action", {
-          teamId: team_id,
-          types: types.join(','),
-          pageNumber: page_number,
-          pageSize: page_size,
-          sort: 'certRequestStatusCode=asc'
-        })
-        parse_response(r, 'certRequests')
+      unless @certificates_cache
+        @certificates_cache = paging do |page_number|
+          r = request(:post, "account/#{platform_slug(mac)}/certificate/listCertRequests.action", {
+            teamId: team_id,
+            types: types.join(','),
+            pageNumber: page_number,
+            pageSize: page_size,
+            sort: 'certRequestStatusCode=asc'
+          })
+          parse_response(r, 'certRequests')
+        end
       end
+
+      @certificates_cache.dup
     end
 
     def create_certificate!(type, csr, app_id = nil, mac = false)
@@ -547,19 +555,29 @@ module Spaceship
     # @!group Provisioning Profiles
     #####################################################
 
-    def provisioning_profiles(mac: false)
-      paging do |page_number|
-        req = request(:post, "account/#{platform_slug(mac)}/profile/listProvisioningProfiles.action", {
-          teamId: team_id,
-          pageNumber: page_number,
-          pageSize: page_size,
-          sort: 'name=asc',
-          includeInactiveProfiles: true,
-          onlyCountLists: true
-        })
+    def clear_provisioning_profiles_cache()
+      @profiles_cache = nil
+    end
 
-        parse_response(req, 'provisioningProfiles')
+    def provisioning_profiles(mac: false)
+      unless @profiles_cache
+        @profiles_cache = paging do |page_number|
+          req = request(:post, "account/#{platform_slug(mac)}/profile/listProvisioningProfiles.action", {
+            teamId: team_id,
+            pageNumber: page_number,
+            pageSize: page_size,
+            sort: 'name=asc',
+            includeInactiveProfiles: true,
+            onlyCountLists: true
+          })
+
+          parse_response(req, 'provisioningProfiles')
+        end
+
+        csrf_cache[Spaceship::ProvisioningProfile] = self.csrf_tokens
       end
+
+      @profiles_cache.dup
     end
 
     ##
@@ -568,16 +586,22 @@ module Spaceship
     #
     # Use this method over `provisioning_profiles` if possible because no secondary API calls are necessary to populate the ProvisioningProfile data model.
     def provisioning_profiles_via_xcode_api(mac: false)
-      req = request(:post) do |r|
-        r.url "https://developerservices2.apple.com/services/#{PROTOCOL_VERSION}/#{platform_slug(mac)}/listProvisioningProfiles.action"
-        r.params = {
-          teamId: team_id,
-          includeInactiveProfiles: true,
-          onlyCountLists: true
-        }
+      unless @profiles_cache
+        req = request(:post) do |r|
+          r.url "https://developerservices2.apple.com/services/#{PROTOCOL_VERSION}/#{platform_slug(mac)}/listProvisioningProfiles.action"
+          r.params = {
+            teamId: team_id,
+            includeInactiveProfiles: true,
+            onlyCountLists: true
+          }
+        end
+
+        csrf_cache[Spaceship::ProvisioningProfile] = self.csrf_tokens
+
+        @profiles_cache = parse_response(req, 'provisioningProfiles')
       end
 
-      parse_response(req, 'provisioningProfiles')
+      @profiles_cache.dup
     end
 
     def provisioning_profile_details(provisioning_profile_id: nil, mac: false)
@@ -714,7 +738,7 @@ module Spaceship
 
     # This is a cache of entity type (App, AppGroup, Certificate, Device) to csrf_tokens
     def csrf_cache
-      @csrf_cache || {}
+      @csrf_cache ||= {}
     end
 
     # Ensures that there are csrf tokens for the appropriate entity type
@@ -734,11 +758,15 @@ module Spaceship
       # we don't have a valid csrf token, that's why we have to do at least one request
       block_given? ? yield : klass.all(alternative_client: self)
 
+      # TODO: Still needed?
+      #
+      # NOTE: Tested with Devices and Provisioning Profiles, works fine without this. (September 25 2017)
+      #
       # Update 18th August 2016
       # For some reason, we have to query the resource twice to actually get a valid csrf_token
       # I couldn't find out why, the first response does have a valid Set-Cookie header
       # But it still needs this second request
-      block_given? ? yield : klass.all(alternative_client: self)
+      #block_given? ? yield : klass.all(alternative_client: self)
 
       csrf_cache[klass] = self.csrf_tokens
     end
