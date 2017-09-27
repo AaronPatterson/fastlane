@@ -86,7 +86,12 @@ module Spaceship
       # @return (Spaceship::Base)
       # rubocop:disable Style/AccessorMethodName
       def set_client(client)
-        self.client = client
+        #
+        # NOTE: We never want the static client to be used.  Setting up to always return dummy
+        #       value so there is not chance of it accidentally being used.
+        #
+        # self.client = client
+        self.client = {}
         self
       end
       # rubocop:enable Style/AccessorMethodName
@@ -210,12 +215,18 @@ module Spaceship
     # attributes that are defined by `attr_mapping`
     #
     # Do not override `initialize` in your own models.
-    def initialize(attrs = {})
+    # @param alternative_client (Spaceship::Client) (optional): Pass an alternative client to use instead of the static one.
+    def initialize(attrs = {}, alternative_client: nil)
       attrs.each do |key, val|
         self.send("#{key}=", val) if respond_to?("#{key}=")
       end
       self.raw_data = DataHash.new(attrs)
-      @client = self.class.client
+      #
+      # We want to set the client on the instance directly rather than have it pick it up
+      # from the static property.
+      #
+      #@client = self.class.client
+      @client = alternative_client || {}
       self.setup
     end
 

@@ -187,7 +187,8 @@ module Spaceship
 
         # Create a new object based on a hash.
         # This is used to create a new object based on the server response.
-        def factory(attrs)
+        # @param alternative_client (Spaceship::Client) (optional): Pass an alternative client to use instead of the static one.
+        def factory(attrs, alternative_client: nil)
           # available values of `distributionMethod` at this point: ['adhoc', 'store', 'limited', 'direct']
           klass = case attrs['distributionMethod']
                   when 'limited'
@@ -219,8 +220,12 @@ module Spaceship
             attrs['template'] = ProvisioningProfileTemplate.factory(attrs['template'])
           end
 
-          klass.client = @client
-          obj = klass.new(attrs)
+          #
+          # We want to set the client on the instance directly rather than have it pick it up
+          # from the static property.
+          #
+          #klass.client = @client
+          obj = klass.new(attrs, alternative_client: alternative_client)
 
           return obj
         end
@@ -316,7 +321,7 @@ module Spaceship
           end
 
           # transform raw data to class instances
-          profiles.map! { |profile| self.factory(profile) }
+          profiles.map! { |profile| self.factory(profile, alternative_client: currentClient) }
 
           # filter out the profiles managed by xcode
           unless xcode
@@ -441,19 +446,19 @@ module Spaceship
         unless certificate_valid?
           if mac?
             if self.kind_of? Development
-              self.certificates = [Spaceship::Certificate::MacDevelopment.all.first]
+              self.certificates = [Spaceship::Certificate::MacDevelopment.all(alternative_client: @client).first]
             elsif self.kind_of? Direct
-              self.certificates = [Spaceship::Certificate::DeveloperIDApplication.all.first]
+              self.certificates = [Spaceship::Certificate::DeveloperIDApplication.all(alternative_client: @client).first]
             else
-              self.certificates = [Spaceship::Certificate::MacAppDistribution.all.first]
+              self.certificates = [Spaceship::Certificate::MacAppDistribution.all(alternative_client: @client).first]
             end
           else
             if self.kind_of? Development
-              self.certificates = [Spaceship::Certificate::Development.all.first]
+              self.certificates = [Spaceship::Certificate::Development.all(alternative_client: @client).first]
             elsif self.kind_of? InHouse
-              self.certificates = [Spaceship::Certificate::InHouse.all.first]
+              self.certificates = [Spaceship::Certificate::InHouse.all(alternative_client: @client).first]
             else
-              self.certificates = [Spaceship::Certificate::Production.all.first]
+              self.certificates = [Spaceship::Certificate::Production.all(alternative_client: @client).first]
             end
           end
         end
@@ -485,7 +490,7 @@ module Spaceship
       def certificate_valid?
         return false if (certificates || []).count == 0
         certificates.each do |c|
-          if Spaceship::Certificate.all(mac: mac?).collect(&:id).include?(c.id)
+          if Spaceship::Certificate.all(mac: mac?, alternative_client: @client).collect(&:id).include?(c.id)
             return true
           end
         end
@@ -515,7 +520,7 @@ module Spaceship
 
       def devices
         if (@devices || []).empty?
-          @devices = (self.profile_details["devices"] || []).collect do |device|
+          @devices = (self.profile_details(alternative_client: @client)["devices"] || []).collect do |device|
             Device.set_client(client).factory(device)
           end
         end
@@ -552,10 +557,13 @@ module Spaceship
       end
 
       # This is an expensive operation as it triggers a new request
-      def profile_details
+      # @param alternative_client (Spaceship::Client) (optional): Pass an alternative client to use instead of the static one.
+      def profile_details(alternative_client: nil)
+        currentClient = alternative_client.nil? ? client : alternative_client
+
         # Since 15th September 2016 certificates and devices are hidden behind another request
         # see https://github.com/fastlane/fastlane/issues/6137 for more information
-        @profile_details ||= client.provisioning_profile_details(provisioning_profile_id: self.id, mac: mac?)
+        @profile_details ||= currentClient.provisioning_profile_details(provisioning_profile_id: self.id, mac: mac?)
       end
 
       # Lazily instantiates the provisioning profile template model

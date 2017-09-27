@@ -12,10 +12,6 @@ module Spaceship
 
       def initialize(client)
         @client = client
-
-        # Some checks are still done to ensure that a static instance has been set even though it is not used.
-        # Set a dummy value to allow these checks to pass.
-       Spaceship::Device.set_client({})
       end
 
       # @param mac [Bool] Fetches Mac devices if true
