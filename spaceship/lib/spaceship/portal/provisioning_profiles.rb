@@ -9,10 +9,6 @@ module Spaceship
     class ProvisioningProfiles
       def initialize(client)
         @client = client
-
-        # Some checks are still done to ensure that a static instance has been set even though it is not used.
-        # Set a dummy value to allow these checks to pass.
-        Spaceship::ProvisioningProfile.set_client({})
       end
 
       # @return (String) The profile type used for web requests to the Dev Portal
@@ -59,8 +55,12 @@ module Spaceship
           attrs['template'] = ProvisioningProfileTemplate.factory(attrs['template'])
         end
 
-        klass.client = @client
-        obj = klass.new(attrs)
+        #
+        # We want to set the client on the instance directly rather than have it pick it up
+        # from the static property.
+        #
+        #klass.client = @client
+        obj = klass.new(attrs, alternative_client: @client)
 
         return obj
       end

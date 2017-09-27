@@ -245,7 +245,10 @@ module Spaceship
         # @return (Array) Returns all certificates of this account.
         #  If this is called from a subclass of Certificate, this will
         #  only include certificates matching the current type.
-        def all(mac: false)
+        # @param alternative_client (Spaceship::Client) (optional): Pass an alternative client to use instead of the static one.
+        def all(mac: false, alternative_client: client)
+          currentClient = alternative_client.nil? ? client : alternative_client
+
           if self == Certificate # are we the base-class?
             type_ids = mac ? MAC_CERTIFICATE_TYPE_IDS : IOS_CERTIFICATE_TYPE_IDS
             types = type_ids.keys
@@ -255,7 +258,7 @@ module Spaceship
             mac = MAC_CERTIFICATE_TYPE_IDS.values.include? self
           end
 
-          client.certificates(types, mac: mac).map do |cert|
+          currentClient.certificates(types, mac: mac).map do |cert|
             factory(cert)
           end
         end
