@@ -496,16 +496,20 @@ module Spaceship
     #####################################################
 
     def certificates(types, mac: false)
-      paging do |page_number|
-        r = request(:post, "account/#{platform_slug(mac)}/certificate/listCertRequests.action", {
-          teamId: team_id,
-          types: types.join(','),
-          pageNumber: page_number,
-          pageSize: page_size,
-          sort: 'certRequestStatusCode=asc'
-        })
-        parse_response(r, 'certRequests')
+      unless @certificates_cache
+        @certificates_cache = paging do |page_number|
+          r = request(:post, "account/#{platform_slug(mac)}/certificate/listCertRequests.action", {
+            teamId: team_id,
+            types: types.join(','),
+            pageNumber: page_number,
+            pageSize: page_size,
+            sort: 'certRequestStatusCode=asc'
+          })
+          parse_response(r, 'certRequests')
+        end
       end
+
+      @certificates_cache.dup
     end
 
     def create_certificate!(type, csr, app_id = nil, mac = false)
